@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulation des Files d'Attente</title>
+  <style>
+      @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+    :root {
+      --dark: #3e5974; --light: #ffffff; --success: #0ABF30;
+      --error: #E24D4C; --warning: #E9BD0C; --info: #3498DB;
+    }
+    body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: var(--dark); color: var(--light); }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-weight: bold; margin-bottom: 5px; }
+    .form-group input, .form-group select { width: 300px; padding: 10px; border-radius: 4px; border: 1px solid #ccc; }
+    .buttons { margin: 20px; }
+    button { padding: 10px 20px; border-radius: 4px; border: none; cursor: pointer; margin-right: 10px; }
+    .notifications { position: fixed; top: 30px; right: 20px; }
+    .toast { display: flex; align-items: center; justify-content: space-between; background: var(--light); border-radius: 4px; padding: 15px; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); width: 300px; }
+    .toast i { margin-right: 10px; }
+    .toast.success { border-left: 5px solid var(--success); }
+    .toast.error { border-left: 5px solid var(--error); }
+    .notifications {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--light);
+  color: var(--dark);
+  border-radius: 5px;
+  padding: 10px 20px;
+  margin-bottom: 10px;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  width: 300px;
+  animation: slideIn 0.5s ease-out;
+}
+
+.toast.success {
+  border-left: 5px solid var(--success);
+}
+
+.toast.error {
+  border-left: 5px solid var(--error);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      font-weight: bold;
+    }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      font-size: 1rem;
+    }
+    button {
+      padding: 10px 15px;
+      font-size: 1rem;
+     
+      color: white;
+      border: none;
+      cursor: pointer;
+   background-color: #E24D4C; 
+    text-align: center;
+     margin-left: 290px;
+    }
+    button:hover {
+      background-color: #b88030;
+    }
+    canvas {
+      margin-top: 20px;
+    }
+    .point-group {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: white ;
+      font-weight: bold;
+    }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    .point-group {
+      border: 1px solid #ccc;
+      padding: 15px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+    <div class="container">
+      <h1 style="text-align: center; font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif; color: #ece0cf;">Simulation des Files d'Attente</h1>
+      <br><br>
+      <img src="./img.png" style="border-radius: 40px; margin-left: 100px; width: 600px;"><br><br>
+      <div class="form-group">
+        <label for="queueType">Type de Système</label>
+        <select id="queueType">
+          <option value="MM1">M/M/1</option>
+          <option value="MG1">M/G/1</option>
+          <option value="GM1">G/M/1</option>
+          <option value="GG1">G/G/1</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="numPoints">Nombre de Points</label>
+        <input type="number" id="numPoints" placeholder="Ex: 3" min="1" required>
+      </div>
+      <button onclick="generatePoints()" style="background-color: #E24D4C; text-align: center; margin-left: 290px;">Générer les Points</button>
+  
+      <div id="pointsContainer"></div>
+      <button id="simulateButton" style="display: none;" onclick="simulate()" >Lancer la Simulation</button>
+  
+      <canvas id="resultChart" width="800" height="400"></canvas>
+    </div>
+    <ul class="notifications"></ul>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+const notifications = document.querySelector(".notifications");
+
+const showNotification = (type, message) => {
+  const toast = document.createElement("li");
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `
+    <i class="fa-solid ${type === 'success' ? 'fa-circle-check' : 'fa-circle-xmark'}"></i>
+    <span>${message}</span>
+    <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="this.parentElement.remove()"></i>`;
+  
+  notifications.appendChild(toast);
+
+  // Suppression automatique après 5 secondes
+  setTimeout(() => {
+    if (toast) toast.remove();
+  }, 5000);
+};
+
+      function generatePoints() {
+        const numPoints = parseInt(document.getElementById("numPoints").value);
+  
+  if (isNaN(numPoints) || numPoints <= 0) {
+    showNotification("error", "Erreur : Nombre de points invalide.");
+    return;
+  }
+
+  showNotification("success", `Succès : ${numPoints} points générés.`);
+
+  const queueType = document.getElementById("queueType").value;
+  const pointsContainer = document.getElementById("pointsContainer");
+  pointsContainer.innerHTML = ''; // Clear previous points
+        
+  
+        for (let i = 1; i <= numPoints; i++) {
+          const pointGroup = document.createElement('div');
+          pointGroup.className = 'point-group';
+          pointGroup.innerHTML = `
+            <h3>Point ${i}</h3>
+            <div class="form-group">
+              <label>Taux d'Arrivée (λ)</label>
+              <input type="number" id="lambda_${i}" placeholder="Ex: 5" min="0" required>
+            </div>
+            <div class="form-group">
+              <label>Taux de Service (μ)</label>
+              <input type="number" id="mu_${i}" placeholder="Ex: 8" min="0" required>
+            </div>
+            <div class="form-group">
+              <label>Durée de la Simulation</label>
+              <input type="number" id="simulationTime_${i}" placeholder="Ex: 100" min="1" required>
+            </div>
+          `;
+  
+          // Ajouter des champs supplémentaires selon le type de modèle
+          if (queueType === "MG1") {
+            pointGroup.innerHTML += `
+              <div class="form-group">
+                <label>Écart-type des Services (σ)</label>
+                <input type="number" id="std_dev_${i}" placeholder="Ex: 2" min="0" required>
+              </div>
+            `;
+          } else if (queueType === "GM1") {
+            pointGroup.innerHTML += `
+              <div class="form-group">
+                <label>Écart-type des Arrivées (σ)</label>
+                <input type="number" id="arrival_std_dev_${i}" placeholder="Ex: 2" min="0" required>
+              </div>
+            `;
+          } else if (queueType === "GG1") {
+            pointGroup.innerHTML += `
+              <div class="form-group">
+                <label>Minimum de la Durée de Service (min)</label>
+                <input type="number" id="min_service_${i}" placeholder="Ex: 5" min="0" required>
+              </div>
+              <div class="form-group">
+                <label>Maximum de la Durée de Service (max)</label>
+                <input type="number" id="max_service_${i}" placeholder="Ex: 10" min="0" required>
+              </div>
+            `;
+          }
+  
+          pointsContainer.appendChild(pointGroup);
+        }
+  
+        document.getElementById("simulateButton").style.display = 'block';
+      }
+  
+      function calculateWaitTime(lambda, mu, model, extra = {}) {
+        if (model === "MM1") {
+          const rho = lambda / mu;
+          if (rho >= 1) return Infinity; // Système instable
+          return rho / (mu * (1 - rho));
+        } else if (model === "MG1") {
+          const std_dev = extra.std_dev || 0;
+          const rho = lambda / mu;
+          if (rho >= 1) return Infinity;
+          return (rho / (2 * mu)) * (1 + (std_dev ** 2) * (mu ** 2)) / (1 - rho);
+        } else if (model === "GM1") {
+          const arrival_std_dev = extra.arrival_std_dev || 0;
+          const rho = lambda / mu;
+          if (rho >= 1) return Infinity;
+          return (rho / (mu * (1 - rho))) + (arrival_std_dev ** 2) / (2 * mu);
+        } else if (model === "GG1") {
+          const min_service = extra.min_service || 0;
+          const max_service = extra.max_service || 0;
+          const avg_service = (min_service + max_service) / 2;
+          return avg_service / (mu * (1 - (lambda / mu)));
+        }
+      }
+  
+      function simulate() {
+        const numPoints = parseInt(document.getElementById("numPoints").value);
+        const model = document.getElementById("queueType").value;
+        const lambdas = [];
+        const waitTimes = [];
+  
+        for (let i = 1; i <= numPoints; i++) {
+          const lambda = parseFloat(document.getElementById(`lambda_${i}`).value);
+          const mu = parseFloat(document.getElementById(`mu_${i}`).value);
+          const simulationTime = parseFloat(document.getElementById(`simulationTime_${i}`).value);
+  
+          let waitTime = 0;
+          if (model === "MM1") {
+            waitTime = calculateWaitTime(lambda, mu, model);
+          } else if (model === "MG1") {
+            const std_dev = parseFloat(document.getElementById(`std_dev_${i}`).value);
+            waitTime = calculateWaitTime(lambda, mu, model, { std_dev });
+          } else if (model === "GM1") {
+            const arrival_std_dev = parseFloat(document.getElementById(`arrival_std_dev_${i}`).value);
+            waitTime = calculateWaitTime(lambda, mu, model, { arrival_std_dev });
+          } else if (model === "GG1") {
+            const min_service = parseFloat(document.getElementById(`min_service_${i}`).value);
+            const max_service = parseFloat(document.getElementById(`max_service_${i}`).value);
+            waitTime = calculateWaitTime(lambda, mu, model, { min_service, max_service });
+          }
+  
+          lambdas.push(`Point ${i}`);
+          waitTimes.push(waitTime);
+        }
+  
+        drawChart(lambdas, waitTimes);
+      }
+      function drawChart(xValues, yValues) {
+  const ctx = document.getElementById("resultChart").getContext("2d");
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: xValues,
+      datasets: [{
+        label: 'Temps moyen d\'attente',
+        data: yValues,
+        borderColor: 'red', // Couleur de la courbe en blanc
+        borderWidth: 2, // Épaisseur de la courbe
+        fill: false, // Pas de remplissage sous la courbe
+        pointBackgroundColor: 'red', // Couleur des points en blanc
+        pointBorderColor: 'red', // Bordure des points en blanc
+        pointRadius: 5 // Taille des points
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            color: 'white' // Couleur du texte de la légende en blanc
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: 'Points',
+            color: 'white' // Couleur du titre de l'axe X en blanc
+          },
+          ticks: {
+            color: 'white' // Couleur des ticks de l'axe X en blanc
+          }
+        },
+        y: {
+          title: {
+            display: true,
+            text: 'Temps moyen d\'attente',
+            color: 'white' // Couleur du titre de l'axe Y en blanc
+          },
+          ticks: {
+            color: 'white' // Couleur des ticks de l'axe Y en blanc
+          }
+        }
+      },
+      elements: {
+        line: {
+          borderColor: 'white' // Couleur de la ligne en blanc
+        },
+        point: {
+          backgroundColor: 'white', // Couleur des points en blanc
+          borderColor: 'white', // Bordure des points en blanc
+        }
+      },
+      backgroundColor: 'black', // Couleur de fond du graphique (noir pour contraste)
+    }
+  });
+}
+
+
+    </script>
+  </body>
+  </html>
+</html>
